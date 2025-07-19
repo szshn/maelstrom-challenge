@@ -25,3 +25,6 @@ Each challenge explores key concepts in distributed systems such as fault tolera
 
 ## 🗂️ Repo Structure
 Each challenge is implemented in its own directory with documentation and test scripts for Maelstrom verification.
+
+## 📄 License & Attribution
+This project is licensed under the MIT License. Challenge descriptions and Maelstrom framework are provided by Fly.io and Jepsen respectively.

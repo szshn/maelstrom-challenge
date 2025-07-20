@@ -4,24 +4,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"maps"
-	"slices"
+	"sync"
 
 	maelstrom "github.com/jepsen-io/maelstrom/demo/go"
 )
 
 func main() {
-	receivedMessages := make(map[float64]struct{}, 0)	// kept separate per each dest node
+	var receivedMessages sync.Map	// kept separate per each dest node
 	var topology map[string]any
 
 	n := maelstrom.NewNode()
 
 	n.Handle("broadcast", func(msg maelstrom.Message) error {
-		return broadcast_handler(msg, receivedMessages, topology, n)
+		return broadcast_handler(msg, &receivedMessages, topology, n)
 	})
 
 	n.Handle("read", func(msg maelstrom.Message) error {
-		return read_handler(msg, receivedMessages, n)
+		return read_handler(msg, &receivedMessages, n)
 	})
 
 	n.Handle("topology", func(msg maelstrom.Message) error {
@@ -35,7 +34,7 @@ func main() {
 
 func broadcast_handler(
 	msg maelstrom.Message,
-	receivedMessages map[float64]struct{},
+	receivedMessages *sync.Map,
 	topology map[string]any,
 	n *maelstrom.Node,
 ) error {
@@ -47,16 +46,13 @@ func broadcast_handler(
 
 	msgInt, ok := body["message"].(float64);
 	if !ok {
-		return fmt.Errorf("unable to parse message as integer: message is type %T", body["message"])
+		return fmt.Errorf("unable to parse message: message is type %T", body["message"])
 	}
 	
 	// Check if the message is new
-	if _, exists := receivedMessages[msgInt]; !exists {
-		// Record message in receivedMessages
-		receivedMessages[msgInt] = struct{}{}
-		
+	if _, exists := receivedMessages.LoadOrStore(msgInt, struct{}{}); !exists {
 		// Broadcast to neighbors not in the sender's network
-		broadcast_list := make(map[string]struct{}, 0)
+		broadcast_list := make(map[string]struct{}, len(topology[msg.Dest].([]any)))	// set length as length of toplogy[msg.Dest]?
 		if neighbors, ok := topology[msg.Dest].([]any); ok {
 			for _, node := range neighbors {
 				if node_name, ok := node.(string); ok {
@@ -73,17 +69,6 @@ func broadcast_handler(
 		}
 		for node := range broadcast_list {
 			n.RPC(node, body, func(msg maelstrom.Message) error {
-				// Unmarshal message body
-				var body map[string]any
-				if err := json.Unmarshal(msg.Body, &body); err != nil {
-					return err
-				}
-
-				// Ensure reply from recipients
-				if msgtype, ok := body["type"].(string); (ok || msgtype != "broadcast_ok") {
-					return fmt.Errorf("did not get ok from %v", node)
-				}
-
 				return nil
 			})
 		}
@@ -99,13 +84,20 @@ func broadcast_handler(
 
 func read_handler(
 	msg maelstrom.Message,
-	receivedMessages map[float64]struct{},
+	receivedMessages *sync.Map,
 	n *maelstrom.Node,
 ) error {
+	messages := make([]float64, 0)
+    receivedMessages.Range(func(key, value any) bool {
+		messages = append(messages, key.(float64))
+        return true
+    })
+
 	body := map[string]any {
 		"type": "read_ok",
-		"messages": slices.Collect(maps.Keys(receivedMessages)),
+		"messages": messages,
 	}
+
 	return n.Reply(msg, body)
 }
 

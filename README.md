@@ -7,7 +7,7 @@ These challenges are built on top of the **Maelstrom** testing framework, which 
 ## 💡 Challenges Covered
 1. [Echo](/maelstrom-echo)
 1. [Unique ID Generation](/maelstrom-unique-ids)
-1. Broadcast
+1. [Broadcast](/maelstrom-broadcast/)
 1. Grow-Only Counter
 1. Kafka-Style Log
 1. Totally-Available Transactions

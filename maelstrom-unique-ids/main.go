@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 
@@ -14,13 +13,11 @@ func main() {
 	n := maelstrom.NewNode()
 
 	n.Handle("generate", func(msg maelstrom.Message) error {
-		var body map[string] any
-		if err := json.Unmarshal(msg.Body, &body); err != nil {
-			return err
+		body := map[string] any {
+			"type": "generate_ok",
+			"id": fmt.Sprintf("%v%v%d", msg.Src, msg.Dest, unique_id),
 		}
-
-		body["type"] = "generate_ok"
-		body["id"] = fmt.Sprintf("%v%v%d", msg.Src, msg.Dest, unique_id)
+		
 		unique_id += 1
 
 		return n.Reply(msg, body)
